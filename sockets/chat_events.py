@@ -37,9 +37,18 @@ def handle_send_message(data):
 def handle_game_chat(data):
     game_id = data.get('game_id')
     message = data.get('message', '').strip()
-    if not message:
+    if not message or len(message) > 500:
         return
+    msg_doc = {
+        'game_id': game_id,
+        'sender_id': current_user.id,
+        'sender': current_user.username,
+        'message': message,
+        'created_at': datetime.utcnow(),
+    }
+    db.game_messages.insert_one(msg_doc)
     emit('game_chat_msg', {
         'sender': current_user.username,
         'message': message,
+        'time': datetime.utcnow().strftime('%H:%M'),
     }, room=f'game_{game_id}')

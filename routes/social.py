@@ -110,3 +110,14 @@ def leaderboard():
              'games_played': 1, 'total_won': 1, 'net_profit': 1, 'sol_balance': 1}
     ).sort('rating', -1).limit(50))
     return render_template('leaderboard.html', players=top_players, sol_rate=SOL_USD_RATE)
+
+
+@social_bp.route('/referrals')
+@login_required
+def referrals():
+    user_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+    referred_users = list(db.users.find(
+        {'referred_by': current_user.id},
+        {'username': 1, 'created_at': 1, 'games_played': 1, 'rating': 1}
+    ).sort('created_at', -1))
+    return render_template('referrals.html', user=user_data, referred_users=referred_users)

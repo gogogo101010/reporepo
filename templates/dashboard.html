@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Chess{% endblock %}
 {% block content %}
+{% if not user.get('email_confirmed', False) %}
+<div class="mb-6 p-4 rounded-xl bg-yellow-900/20 border border-yellow-800/50 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+        <span class="text-yellow-400 text-xl">&#9888;</span>
+        <div>
+            <p class="text-sm font-medium text-yellow-300">Email not confirmed</p>
+            <p class="text-xs text-gray-400">Please check your inbox and confirm your email address to fully activate your account.</p>
+        </div>
+    </div>
+    <a href="{{ url_for('auth.resend_confirmation') }}" class="px-4 py-2 rounded-lg border border-yellow-700 text-yellow-400 text-sm font-medium hover:border-yellow-500 transition flex-shrink-0">Resend Email</a>
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Left: Quick Play -->
     <div class="lg:col-span-2 space-y-6">

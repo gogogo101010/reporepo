@@ -24,8 +24,11 @@ def load_user(user_id):
     return None
 
 
+# Initialize Google OAuth
+from routes.auth import auth_bp, init_oauth
+init_oauth(app)
+
 # Register blueprints
-from routes.auth import auth_bp
 from routes.game import game_bp
 from routes.social import social_bp
 from routes.wallet_routes import wallet_bp

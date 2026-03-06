@@ -35,5 +35,13 @@ class User(UserMixin):
         return self._data.get('wallet_address', '')
 
     @property
+    def email_confirmed(self):
+        return self._data.get('email_confirmed', False)
+
+    @property
+    def referral_code(self):
+        return self._data.get('referral_code', '')
+
+    @property
     def data(self):
         return self._data

@@ -106,8 +106,15 @@
 
         <!-- Game Chat -->
         <div class="card rounded-xl p-4">
-            <h3 class="text-sm font-semibold text-gray-300 mb-3">Chat</h3>
-            <div id="game-chat-messages" class="h-32 overflow-y-auto scrollbar-thin space-y-1 mb-2">
+            <h3 class="text-sm font-semibold text-gray-300 mb-3">Game Chat</h3>
+            <div id="game-chat-messages" class="h-40 overflow-y-auto scrollbar-thin space-y-1 mb-2">
+                {% for msg in chat_messages %}
+                <div class="text-xs {% if msg.sender_id == current_user.id %}text-right{% endif %}">
+                    <span class="font-semibold {% if msg.sender_id == current_user.id %}text-indigo-400{% else %}text-green-400{% endif %}">{{ msg.sender }}:</span>
+                    <span class="text-gray-300">{{ msg.message }}</span>
+                    <span class="text-gray-600 text-[10px] ml-1">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</span>
+                </div>
+                {% endfor %}
             </div>
             <div class="flex space-x-2">
                 <input type="text" id="game-chat-input" placeholder="Type a message..."
@@ -748,7 +755,7 @@ socket.on('draw_offered', (data) => {
 });
 
 socket.on('game_chat_msg', (data) => {
-    addChatMessage(data.sender, data.message);
+    addChatMessage(data.sender, data.message, data.time);
 });
 
 // ─── Game Actions ──────────────────────────────────────────────────
@@ -772,12 +779,13 @@ function sendGameChat() {
     input.value = '';
 }
 
-function addChatMessage(sender, message) {
+function addChatMessage(sender, message, time) {
     const container = document.getElementById('game-chat-messages');
     const div = document.createElement('div');
     const isSelf = sender === CURRENT_USERNAME;
+    const t = time || new Date().toTimeString().slice(0,5);
     div.className = `text-xs ${isSelf ? 'text-right' : ''}`;
-    div.innerHTML = `<span class="font-semibold ${isSelf ? 'text-indigo-400' : 'text-green-400'}">${sender}:</span> <span class="text-gray-300">${message}</span>`;
+    div.innerHTML = `<span class="font-semibold ${isSelf ? 'text-indigo-400' : 'text-green-400'}">${sender}:</span> <span class="text-gray-300">${message}</span> <span class="text-gray-600 text-[10px] ml-1">${t}</span>`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
@@ -807,6 +815,10 @@ function init() {
     updateMoveList();
     updateCapturedPieces();
     updateGameStatus();
+
+    // Scroll chat to bottom on load
+    const chatEl = document.getElementById('game-chat-messages');
+    chatEl.scrollTop = chatEl.scrollHeight;
 
     // If playing black vs bot, trigger bot's first move
     if (GAME_DATA.type === 'bot' && playerColor === 'black' && moves.length === 0) {

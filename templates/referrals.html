@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Referrals - Chess{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold">Referral Program</h1>
+
+    <!-- Referral Link Card -->
+    <div class="card rounded-xl p-8 bg-gradient-to-r from-[#16213e] to-[#1a1040] border-purple-900/30">
+        <div class="text-center mb-4">
+            <h2 class="text-xl font-bold mb-2">Invite Friends & Earn</h2>
+            <p class="text-gray-400 text-sm">Share your referral link and grow the community</p>
+        </div>
+        <div class="bg-[#0a0e27] rounded-lg px-4 py-3 border border-gray-700 flex items-center justify-between">
+            <code class="text-sm text-gray-300 break-all" id="referral-link">{{ request.host_url }}register?ref={{ user.get('referral_code', '') }}</code>
+            <button onclick="copyReferralLink()" class="ml-3 px-4 py-2 rounded-lg btn-sol text-white text-sm font-medium flex-shrink-0">Copy</button>
+        </div>
+        <p class="text-center text-xs text-gray-600 mt-3">Your referral code: <span class="text-indigo-400 font-mono">{{ user.get('referral_code', 'N/A') }}</span></p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{{ user.get('referral_count', 0) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Total Referrals</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold text-green-400">{{ '%.4f'|format(user.get('referral_earnings', 0)) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Total Earnings (SOL)</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-2xl font-bold sol-gradient">{{ referred_users|length }}</div>
+            <div class="text-xs text-gray-500 mt-1">Active Users</div>
+        </div>
+    </div>
+
+    <!-- Referred Users -->
+    <div class="card rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Your Referrals</h2>
+        {% if referred_users %}
+        <div class="space-y-2">
+            {% for u in referred_users %}
+            <div class="flex items-center justify-between p-4 rounded-lg bg-[#0a0e27] hover:bg-[#111638] transition">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center font-bold">
+                        {{ u.username[0].upper() }}
+                    </div>
+                    <div>
+                        <a href="{{ url_for('social.profile', username=u.username) }}" class="font-medium hover:text-indigo-400 transition">{{ u.username }}</a>
+                        <div class="text-xs text-gray-500">Rating: {{ u.get('rating', 1200) }} | Games: {{ u.get('games_played', 0) }}</div>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-500">
+                    Joined {{ u.created_at.strftime('%b %d, %Y') if u.created_at else 'Recently' }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No referrals yet. Share your link to get started!</p>
+        {% endif %}
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+function copyReferralLink() {
+    const link = document.getElementById('referral-link').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        const btn = event.target;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+}
+</script>
+{% endblock %}
+{% endblock %}

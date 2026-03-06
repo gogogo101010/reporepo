@@ -100,5 +100,9 @@ def game_page(game_id):
         game_data['_id'] = str(game_data['_id'])
     else:
         game_data = json.loads(game_json)
+    chat_messages = list(db.game_messages.find(
+        {'game_id': game_id}
+    ).sort('created_at', 1).limit(200))
     return render_template('game.html', game=game_data, game_id=game_id,
-                           house_edge=HOUSE_EDGE_PERCENT, sol_rate=SOL_USD_RATE)
+                           house_edge=HOUSE_EDGE_PERCENT, sol_rate=SOL_USD_RATE,
+                           chat_messages=chat_messages)
