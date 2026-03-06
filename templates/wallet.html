@@ -53,7 +53,7 @@
         <div class="card rounded-xl p-6">
             <h2 class="text-lg font-semibold mb-4">Deposit SOL</h2>
             <p class="text-xs text-gray-500 mb-4">Send SOL to your deposit address above, then confirm below.</p>
-            <form method="POST" action="{{ url_for('deposit') }}" class="space-y-3">
+            <form method="POST" action="{{ url_for('wallet.deposit') }}" class="space-y-3">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Amount (SOL)</label>
                     <input type="number" name="amount" step="0.0001" min="0.001" max="1000" required
@@ -67,7 +67,7 @@
         <!-- Withdraw -->
         <div class="card rounded-xl p-6">
             <h2 class="text-lg font-semibold mb-4">Withdraw SOL</h2>
-            <form method="POST" action="{{ url_for('withdraw') }}" class="space-y-3">
+            <form method="POST" action="{{ url_for('wallet.withdraw') }}" class="space-y-3">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Amount (SOL)</label>
                     <input type="number" name="amount" step="0.0001" min="0.001" max="{{ user.get('sol_balance', 0) }}" required

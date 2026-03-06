@@ -32,7 +32,7 @@
                         {% endif %}
                     </td>
                     <td class="p-4">
-                        <a href="{{ url_for('profile', username=player.username) }}" class="font-medium hover:text-indigo-400 transition">
+                        <a href="{{ url_for('social.profile', username=player.username) }}" class="font-medium hover:text-indigo-400 transition">
                             {{ player.username }}
                         </a>
                     </td>

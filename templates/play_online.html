@@ -14,7 +14,7 @@
             <span class="text-lg font-bold sol-gradient">{{ '%.4f'|format(balance) }} SOL</span>
             <span class="text-sm text-gray-500">(${{ '%.2f'|format(balance * sol_rate) }})</span>
         </div>
-        <a href="{{ url_for('wallet_page') }}" class="text-sm text-indigo-400 hover:text-indigo-300 transition">Add funds</a>
+        <a href="{{ url_for('wallet.wallet_page') }}" class="text-sm text-indigo-400 hover:text-indigo-300 transition">Add funds</a>
     </div>
 
     <!-- House Edge Notice -->

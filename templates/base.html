@@ -48,7 +48,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center space-x-8">
-                    <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('index') }}" class="flex items-center space-x-2">
+                    <a href="{{ url_for('game.dashboard') if current_user.is_authenticated else url_for('auth.index') }}" class="flex items-center space-x-2">
                         <svg class="w-8 h-8 text-indigo-400" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 22H5v-2h14v2M17.16 8.26A4.96 4.96 0 0 0 19 4c0-1.95-1.4-3.56-3.25-3.93A3.99 3.99 0 0 0 12 2a3.99 3.99 0 0 0-3.75-1.93C6.4.44 5 2.05 5 4c0 1.62.77 3.06 1.97 3.98L5 18h14l-1.84-9.74Z"/>
                         </svg>
@@ -56,31 +56,31 @@
                     </a>
                     {% if current_user.is_authenticated %}
                     <div class="hidden md:flex items-center space-x-1">
-                        <a href="{{ url_for('dashboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Dashboard</a>
-                        <a href="{{ url_for('play_bot') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Practice</a>
-                        <a href="{{ url_for('play_online') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Play & Bet</a>
-                        <a href="{{ url_for('wallet_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Wallet</a>
-                        <a href="{{ url_for('friends_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Friends</a>
-                        <a href="{{ url_for('leaderboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Leaderboard</a>
+                        <a href="{{ url_for('game.dashboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Dashboard</a>
+                        <a href="{{ url_for('game.play_bot') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Practice</a>
+                        <a href="{{ url_for('game.play_online') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Play & Bet</a>
+                        <a href="{{ url_for('wallet.wallet_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Wallet</a>
+                        <a href="{{ url_for('social.friends_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Friends</a>
+                        <a href="{{ url_for('social.leaderboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Leaderboard</a>
                     </div>
                     {% endif %}
                 </div>
                 <div class="flex items-center space-x-4">
                     {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('wallet_page') }}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1a1f3e] border border-gray-700 hover:border-[#14F195] transition">
+                    <a href="{{ url_for('wallet.wallet_page') }}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1a1f3e] border border-gray-700 hover:border-[#14F195] transition">
                         <span class="text-xs sol-gradient font-bold">SOL</span>
                         <span class="text-sm font-semibold text-white">{{ '%.4f'|format(current_user.sol_balance) }}</span>
                     </a>
-                    <a href="{{ url_for('profile', username=current_user.username) }}" class="flex items-center space-x-2 nav-link px-3 py-2 rounded-lg">
+                    <a href="{{ url_for('social.profile', username=current_user.username) }}" class="flex items-center space-x-2 nav-link px-3 py-2 rounded-lg">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold">
                             {{ current_user.username[0].upper() }}
                         </div>
                         <span class="text-sm font-medium text-gray-300 hidden sm:inline">{{ current_user.username }}</span>
                     </a>
-                    <a href="{{ url_for('logout') }}" class="text-sm text-gray-400 hover:text-white transition">Logout</a>
+                    <a href="{{ url_for('auth.logout') }}" class="text-sm text-gray-400 hover:text-white transition">Logout</a>
                     {% else %}
-                    <a href="{{ url_for('login') }}" class="text-sm text-gray-300 hover:text-white transition">Login</a>
-                    <a href="{{ url_for('register') }}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium text-white">Sign Up</a>
+                    <a href="{{ url_for('auth.login') }}" class="text-sm text-gray-300 hover:text-white transition">Login</a>
+                    <a href="{{ url_for('auth.register') }}" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium text-white">Sign Up</a>
                     {% endif %}
                 </div>
             </div>
