@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Chess - Play Chess Online{% endblock %}
+{% block content %}
+<div class="min-h-[80vh] flex flex-col items-center justify-center text-center">
+    <div class="mb-8">
+        <h1 class="text-6xl font-extrabold mb-4">
+            <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Play Chess Online</span>
+        </h1>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+            Challenge friends, play against bots, climb the leaderboard. Your next great game starts here.
+        </p>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-4 mb-16">
+        <a href="{{ url_for('register') }}" class="btn-primary px-8 py-4 rounded-xl text-lg font-semibold text-white shadow-lg">
+            Play Now - It's Free
+        </a>
+        <a href="{{ url_for('login') }}" class="px-8 py-4 rounded-xl text-lg font-semibold text-gray-300 border border-gray-700 hover:border-gray-500 transition">
+            Sign In
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+        <div class="card rounded-xl p-6 text-center">
+            <div class="text-4xl mb-4">&#9822;</div>
+            <h3 class="text-lg font-semibold mb-2">Play vs Bots</h3>
+            <p class="text-gray-400 text-sm">Three difficulty levels from beginner to expert. Perfect your strategy.</p>
+        </div>
+        <div class="card rounded-xl p-6 text-center">
+            <div class="text-4xl mb-4">&#9818;</div>
+            <h3 class="text-lg font-semibold mb-2">Play Online</h3>
+            <p class="text-gray-400 text-sm">Real-time matches against players worldwide with rating system.</p>
+        </div>
+        <div class="card rounded-xl p-6 text-center">
+            <div class="text-4xl mb-4">&#9829;</div>
+            <h3 class="text-lg font-semibold mb-2">Friends & Chat</h3>
+            <p class="text-gray-400 text-sm">Add friends, chat, challenge them to games, and track your history.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

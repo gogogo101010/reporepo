@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Play vs Bot - Chess{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="card rounded-2xl p-8 w-full max-w-lg shadow-2xl">
+        <div class="text-center mb-8">
+            <div class="text-5xl mb-4">&#9822;</div>
+            <h2 class="text-3xl font-bold">Play vs Bot</h2>
+            <p class="text-gray-400 mt-2">Choose your settings and start playing</p>
+        </div>
+        <form method="POST" class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-3">Difficulty</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="difficulty" value="easy" class="hidden peer">
+                        <div class="peer-checked:border-green-500 peer-checked:bg-green-900/30 border border-gray-700 rounded-xl p-4 text-center transition hover:border-gray-500">
+                            <div class="text-2xl mb-1">&#127793;</div>
+                            <div class="text-sm font-medium">Easy</div>
+                            <div class="text-xs text-gray-500">~800</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="difficulty" value="medium" class="hidden peer" checked>
+                        <div class="peer-checked:border-yellow-500 peer-checked:bg-yellow-900/30 border border-gray-700 rounded-xl p-4 text-center transition hover:border-gray-500">
+                            <div class="text-2xl mb-1">&#9876;</div>
+                            <div class="text-sm font-medium">Medium</div>
+                            <div class="text-xs text-gray-500">~1200</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="difficulty" value="hard" class="hidden peer">
+                        <div class="peer-checked:border-red-500 peer-checked:bg-red-900/30 border border-gray-700 rounded-xl p-4 text-center transition hover:border-gray-500">
+                            <div class="text-2xl mb-1">&#128081;</div>
+                            <div class="text-sm font-medium">Hard</div>
+                            <div class="text-xs text-gray-500">~1800</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-3">Play As</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="color" value="white" class="hidden peer" checked>
+                        <div class="peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 border border-gray-700 rounded-xl p-4 text-center transition hover:border-gray-500">
+                            <div class="text-3xl mb-1">&#9812;</div>
+                            <div class="text-sm font-medium">White</div>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="color" value="black" class="hidden peer">
+                        <div class="peer-checked:border-indigo-500 peer-checked:bg-indigo-900/30 border border-gray-700 rounded-xl p-4 text-center transition hover:border-gray-500">
+                            <div class="text-3xl mb-1">&#9818;</div>
+                            <div class="text-sm font-medium">Black</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="w-full btn-primary py-4 rounded-xl text-white font-semibold text-lg">
+                Start Game
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

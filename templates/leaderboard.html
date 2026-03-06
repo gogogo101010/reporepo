@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard - Chess{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Leaderboard</h1>
+
+    <div class="card rounded-xl overflow-hidden">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 text-sm font-medium text-gray-400 w-16">#</th>
+                    <th class="text-left p-4 text-sm font-medium text-gray-400">Player</th>
+                    <th class="text-center p-4 text-sm font-medium text-gray-400">Rating</th>
+                    <th class="text-center p-4 text-sm font-medium text-gray-400">W</th>
+                    <th class="text-center p-4 text-sm font-medium text-gray-400">L</th>
+                    <th class="text-center p-4 text-sm font-medium text-gray-400">D</th>
+                    <th class="text-center p-4 text-sm font-medium text-gray-400">Games</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr class="border-b border-gray-800/50 hover:bg-[#111638] transition">
+                    <td class="p-4">
+                        {% if loop.index == 1 %}
+                        <span class="text-yellow-400 font-bold">&#127942;</span>
+                        {% elif loop.index == 2 %}
+                        <span class="text-gray-300 font-bold">&#129352;</span>
+                        {% elif loop.index == 3 %}
+                        <span class="text-orange-400 font-bold">&#129353;</span>
+                        {% else %}
+                        <span class="text-gray-500 text-sm">{{ loop.index }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="p-4">
+                        <a href="{{ url_for('profile', username=player.username) }}" class="font-medium hover:text-indigo-400 transition">
+                            {{ player.username }}
+                        </a>
+                    </td>
+                    <td class="p-4 text-center">
+                        <span class="font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{{ player.rating }}</span>
+                    </td>
+                    <td class="p-4 text-center text-green-400 text-sm">{{ player.wins }}</td>
+                    <td class="p-4 text-center text-red-400 text-sm">{{ player.losses }}</td>
+                    <td class="p-4 text-center text-yellow-400 text-sm">{{ player.draws }}</td>
+                    <td class="p-4 text-center text-gray-400 text-sm">{{ player.games_played }}</td>
+                </tr>
+                {% endfor %}
+                {% if not players %}
+                <tr>
+                    <td colspan="7" class="p-8 text-center text-gray-500">No players yet. Be the first!</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

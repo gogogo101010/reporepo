@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Play Online - Chess{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="card rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
+        <div class="text-5xl mb-4">&#9818;</div>
+        <h2 class="text-3xl font-bold mb-2">Play Online</h2>
+        <p class="text-gray-400 mb-8">Find an opponent and play in real-time</p>
+
+        <div id="matchmaking-area">
+            <button id="find-match-btn" onclick="findMatch()" class="w-full btn-primary py-4 rounded-xl text-white font-semibold text-lg">
+                Find Match
+            </button>
+        </div>
+
+        <div id="waiting-area" class="hidden">
+            <div class="flex flex-col items-center space-y-6">
+                <div class="relative">
+                    <div class="w-20 h-20 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                </div>
+                <div>
+                    <p class="text-lg font-medium">Looking for opponent...</p>
+                    <p class="text-gray-400 text-sm mt-1" id="wait-time">Searching...</p>
+                </div>
+                <button onclick="cancelMatch()" class="px-6 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    const socket = io();
+    let waitTimer = null;
+    let waitSeconds = 0;
+
+    function findMatch() {
+        document.getElementById('matchmaking-area').classList.add('hidden');
+        document.getElementById('waiting-area').classList.remove('hidden');
+        socket.emit('find_match', {});
+        waitSeconds = 0;
+        waitTimer = setInterval(() => {
+            waitSeconds++;
+            document.getElementById('wait-time').textContent = `Waiting ${waitSeconds}s...`;
+        }, 1000);
+    }
+
+    function cancelMatch() {
+        socket.emit('cancel_match', {});
+        clearInterval(waitTimer);
+        document.getElementById('matchmaking-area').classList.remove('hidden');
+        document.getElementById('waiting-area').classList.add('hidden');
+    }
+
+    socket.on('match_found', (data) => {
+        clearInterval(waitTimer);
+        window.location.href = '/game/' + data.game_id;
+    });
+
+    socket.on('match_status', (data) => {
+        if (data.status === 'waiting') {
+            document.getElementById('wait-time').textContent = 'In queue, waiting for opponent...';
+        }
+    });
+
+    // Handle challenges
+    socket.on('game_challenge', (data) => {
+        if (confirm(`${data.from_name} challenged you to a game! Accept?`)) {
+            socket.emit('accept_challenge', { from_id: data.from_id });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}
