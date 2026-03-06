@@ -8,3 +8,5 @@ chess==1.10.0
 bcrypt==4.1.2
 eventlet==0.35.1
 python-dotenv==1.0.0
+solders==0.27.1
+base58==2.1.1

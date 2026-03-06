@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Wallet - Chess{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold">Solana Wallet</h1>
+
+    <!-- Balance Card -->
+    <div class="card rounded-xl p-8 bg-gradient-to-r from-[#16213e] to-[#1a1040] border-purple-900/30">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <p class="text-sm text-gray-400 mb-1">Total Balance</p>
+                <p class="text-4xl font-bold sol-gradient">{{ '%.4f'|format(user.get('sol_balance', 0)) }} SOL</p>
+                <p class="text-lg text-gray-400 mt-1">${{ '%.2f'|format(user.get('sol_balance', 0) * sol_rate) }} USD</p>
+                <p class="text-xs text-gray-600 mt-2">1 SOL = ${{ '%.2f'|format(sol_rate) }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xs text-gray-500 mb-1">Deposit Address</p>
+                <div class="bg-[#0a0e27] rounded-lg px-4 py-3 border border-gray-700">
+                    <code class="text-sm text-gray-300 break-all">{{ user.get('wallet_address', 'N/A') }}</code>
+                </div>
+                <button onclick="navigator.clipboard.writeText('{{ user.get('wallet_address', '') }}')" class="text-xs text-indigo-400 hover:text-indigo-300 mt-1 transition">Copy Address</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Betting Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-lg font-bold sol-gradient">{{ '%.4f'|format(user.get('total_wagered', 0)) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Total Wagered</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-lg font-bold text-green-400">{{ user.get('bet_wins', 0) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Bets Won</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-lg font-bold text-red-400">{{ user.get('bet_losses', 0) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Bets Lost</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            <div class="text-lg font-bold text-green-400">{{ '%.4f'|format(user.get('total_won', 0)) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Total Won</div>
+        </div>
+        <div class="card rounded-xl p-4 text-center">
+            {% set net = user.get('net_profit', 0) %}
+            <div class="text-lg font-bold {% if net >= 0 %}text-green-400{% else %}text-red-400{% endif %}">{{ '+' if net >= 0 }}{{ '%.4f'|format(net) }}</div>
+            <div class="text-xs text-gray-500 mt-1">Net Profit</div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Deposit -->
+        <div class="card rounded-xl p-6">
+            <h2 class="text-lg font-semibold mb-4">Deposit SOL</h2>
+            <p class="text-xs text-gray-500 mb-4">Send SOL to your deposit address above, then confirm below.</p>
+            <form method="POST" action="{{ url_for('deposit') }}" class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Amount (SOL)</label>
+                    <input type="number" name="amount" step="0.0001" min="0.001" max="1000" required
+                           class="w-full px-4 py-3 rounded-lg bg-[#0a0e27] border border-gray-700 text-white focus:outline-none focus:border-[#14F195] transition"
+                           placeholder="0.0000">
+                </div>
+                <button type="submit" class="w-full btn-sol py-3 rounded-lg text-white font-semibold">Confirm Deposit</button>
+            </form>
+        </div>
+
+        <!-- Withdraw -->
+        <div class="card rounded-xl p-6">
+            <h2 class="text-lg font-semibold mb-4">Withdraw SOL</h2>
+            <form method="POST" action="{{ url_for('withdraw') }}" class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Amount (SOL)</label>
+                    <input type="number" name="amount" step="0.0001" min="0.001" max="{{ user.get('sol_balance', 0) }}" required
+                           class="w-full px-4 py-3 rounded-lg bg-[#0a0e27] border border-gray-700 text-white focus:outline-none focus:border-[#14F195] transition"
+                           placeholder="0.0000">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Destination Address</label>
+                    <input type="text" name="address" required
+                           class="w-full px-4 py-3 rounded-lg bg-[#0a0e27] border border-gray-700 text-white focus:outline-none focus:border-[#14F195] transition"
+                           placeholder="Solana wallet address">
+                </div>
+                <button type="submit" class="w-full py-3 rounded-lg border border-gray-700 text-gray-300 font-semibold hover:border-gray-500 transition">Withdraw</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bet History -->
+    <div class="card rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Bet History</h2>
+        {% if bet_history %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-gray-800">
+                        <th class="text-left p-3 text-xs font-medium text-gray-400">Date</th>
+                        <th class="text-center p-3 text-xs font-medium text-gray-400">Bet (USD)</th>
+                        <th class="text-center p-3 text-xs font-medium text-gray-400">Stake (SOL)</th>
+                        <th class="text-center p-3 text-xs font-medium text-gray-400">Result</th>
+                        <th class="text-center p-3 text-xs font-medium text-gray-400">Payout</th>
+                        <th class="text-right p-3 text-xs font-medium text-gray-400">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bet in bet_history %}
+                    <tr class="border-b border-gray-800/50 hover:bg-[#111638] transition">
+                        <td class="p-3 text-sm text-gray-400">{{ bet.created_at.strftime('%b %d, %H:%M') if bet.created_at else '' }}</td>
+                        <td class="p-3 text-sm text-center">${{ bet.bet_usd }}</td>
+                        <td class="p-3 text-sm text-center text-gray-400">{{ '%.4f'|format(bet.bet_sol) }}</td>
+                        <td class="p-3 text-center">
+                            <span class="px-2 py-0.5 rounded text-xs
+                                {% if bet.result == 'won' %}bg-green-900/50 text-green-400
+                                {% elif bet.result == 'lost' %}bg-red-900/50 text-red-400
+                                {% else %}bg-yellow-900/50 text-yellow-400{% endif %}">
+                                {{ bet.result|upper }}
+                            </span>
+                        </td>
+                        <td class="p-3 text-sm text-center">{{ '%.4f'|format(bet.payout) }} SOL</td>
+                        <td class="p-3 text-sm text-right font-medium {% if bet.profit >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                            {{ '+' if bet.profit >= 0 }}{{ '%.4f'|format(bet.profit) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No bets yet. Play a ranked game to get started!</p>
+        {% endif %}
+    </div>
+
+    <!-- Transaction History -->
+    <div class="card rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Transaction History</h2>
+        {% if transactions %}
+        <div class="space-y-2">
+            {% for tx in transactions %}
+            <div class="flex items-center justify-between p-3 rounded-lg bg-[#0a0e27] hover:bg-[#111638] transition">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm
+                        {% if tx.type == 'deposit' %}bg-green-900/50 text-green-400
+                        {% elif tx.type == 'withdrawal' %}bg-red-900/50 text-red-400
+                        {% elif tx.type == 'bet_win' %}bg-green-900/50 text-green-400
+                        {% elif tx.type == 'bet_loss' %}bg-red-900/50 text-red-400
+                        {% elif tx.type == 'bet_refund' %}bg-yellow-900/50 text-yellow-400
+                        {% else %}bg-gray-900/50 text-gray-400{% endif %}">
+                        {% if tx.type == 'deposit' %}+
+                        {% elif tx.type == 'withdrawal' %}-
+                        {% elif tx.type == 'bet_win' %}W
+                        {% elif tx.type == 'bet_loss' %}L
+                        {% elif tx.type == 'bet_refund' %}R
+                        {% else %}B{% endif %}
+                    </div>
+                    <div>
+                        <p class="text-sm">{{ tx.description }}</p>
+                        <p class="text-xs text-gray-500">{{ tx.created_at.strftime('%b %d, %Y %H:%M') if tx.created_at else '' }}</p>
+                    </div>
+                </div>
+                <span class="text-sm font-medium {% if tx.amount > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {{ '+' if tx.amount > 0 }}{{ '%.4f'|format(tx.amount) }} SOL
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No transactions yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -46,6 +46,33 @@
 
     <!-- Right side: Info Panel -->
     <div class="w-full lg:w-80 space-y-4">
+        <!-- Bet Info -->
+        {% if game.get('bet_usd', 0) > 0 %}
+        <div class="card rounded-xl p-4 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border-purple-800/30">
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-1">Stake</p>
+                <p class="text-2xl font-bold sol-gradient">${{ game.bet_usd }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ '%.4f'|format(game.bet_amount) }} SOL each</p>
+                <div class="mt-2 grid grid-cols-2 gap-2 text-center">
+                    <div class="p-2 rounded bg-[#0a0e27]">
+                        <p class="text-[10px] text-gray-500">Win Payout</p>
+                        <p class="text-xs font-bold text-green-400">{{ '%.4f'|format(game.bet_amount * 2 * 0.9) }} SOL</p>
+                    </div>
+                    <div class="p-2 rounded bg-[#0a0e27]">
+                        <p class="text-[10px] text-gray-500">House Edge</p>
+                        <p class="text-xs font-bold text-yellow-400">{{ house_edge }}%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif game.get('type') == 'bot' %}
+        <div class="card rounded-xl p-3">
+            <div class="text-center">
+                <span class="px-2 py-0.5 rounded text-xs bg-green-900/50 text-green-400 border border-green-800/50">PRACTICE - FREE</span>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Game Status -->
         <div class="card rounded-xl p-4">
             <div id="game-status" class="text-center">
@@ -627,6 +654,10 @@ function updateCapturedPieces() {
 }
 
 // ─── Game Status ───────────────────────────────────────────────────
+const BET_USD = GAME_DATA.bet_usd || 0;
+const BET_SOL = GAME_DATA.bet_amount || 0;
+const SOL_RATE = {{ sol_rate }};
+
 function updateGameStatus() {
     const statusEl = document.getElementById('game-status');
     const resignBtn = document.getElementById('resign-btn');
@@ -646,24 +677,33 @@ function updateGameStatus() {
         drawBtn.classList.add('opacity-50');
 
         let statusText = '';
-        if (gameStatus === 'checkmate') {
-            const winner = GAME_DATA.winner || '';
-            if ((winner === 'white' && playerColor === 'white') || (winner === 'black' && playerColor === 'black')) {
-                statusText = '<span class="text-green-400 font-bold text-lg">You won by checkmate!</span>';
+        let payoutText = '';
+        const isPaid = BET_SOL > 0;
+        const winner = GAME_DATA.winner || '';
+        const isWinner = (winner === 'white' && playerColor === 'white') || (winner === 'black' && playerColor === 'black');
+
+        if (gameStatus === 'checkmate' || gameStatus === 'resigned') {
+            const reason = gameStatus === 'checkmate' ? 'checkmate' : 'resignation';
+            if (isWinner) {
+                statusText = `<span class="text-green-400 font-bold text-lg">You won by ${reason}!</span>`;
+                if (isPaid) {
+                    const payout = (BET_SOL * 2 * 0.9).toFixed(4);
+                    const profit = (BET_SOL * 2 * 0.9 - BET_SOL).toFixed(4);
+                    payoutText = `<div class="mt-2 p-2 rounded-lg bg-green-900/20 border border-green-800/30"><p class="text-xs text-green-400">Won <span class="font-bold">${payout} SOL</span> (+${profit} SOL profit)</p></div>`;
+                }
             } else {
-                statusText = '<span class="text-red-400 font-bold text-lg">You lost by checkmate</span>';
-            }
-        } else if (gameStatus === 'resigned') {
-            const winner = GAME_DATA.winner || '';
-            if ((winner === 'white' && playerColor === 'white') || (winner === 'black' && playerColor === 'black')) {
-                statusText = '<span class="text-green-400 font-bold text-lg">Opponent resigned - You win!</span>';
-            } else {
-                statusText = '<span class="text-red-400 font-bold text-lg">You resigned</span>';
+                statusText = `<span class="text-red-400 font-bold text-lg">${gameStatus === 'resigned' && !isWinner ? 'You resigned' : 'You lost by ' + reason}</span>`;
+                if (isPaid) {
+                    payoutText = `<div class="mt-2 p-2 rounded-lg bg-red-900/20 border border-red-800/30"><p class="text-xs text-red-400">Lost <span class="font-bold">${BET_SOL.toFixed(4)} SOL</span> (-$${BET_USD})</p></div>`;
+                }
             }
         } else if (gameStatus === 'stalemate' || gameStatus === 'draw') {
             statusText = '<span class="text-yellow-400 font-bold text-lg">Game drawn</span>';
+            if (isPaid) {
+                payoutText = `<div class="mt-2 p-2 rounded-lg bg-yellow-900/20 border border-yellow-800/30"><p class="text-xs text-yellow-400">Stake refunded: <span class="font-bold">${BET_SOL.toFixed(4)} SOL</span></p></div>`;
+            }
         }
-        statusEl.innerHTML = statusText;
+        statusEl.innerHTML = statusText + payoutText;
     }
 }
 

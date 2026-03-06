@@ -27,5 +27,13 @@ class User(UserMixin):
         return self._data.get('rating', 1200)
 
     @property
+    def sol_balance(self):
+        return self._data.get('sol_balance', 0.0)
+
+    @property
+    def wallet_address(self):
+        return self._data.get('wallet_address', '')
+
+    @property
     def data(self):
         return self._data

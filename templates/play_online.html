@@ -1,29 +1,102 @@
 {% extends "base.html" %}
-{% block title %}Play Online - Chess{% endblock %}
+{% block title %}Play & Bet - Chess{% endblock %}
 {% block content %}
-<div class="min-h-[70vh] flex items-center justify-center">
-    <div class="card rounded-2xl p-8 w-full max-w-lg shadow-2xl text-center">
-        <div class="text-5xl mb-4">&#9818;</div>
-        <h2 class="text-3xl font-bold mb-2">Play Online</h2>
-        <p class="text-gray-400 mb-8">Find an opponent and play in real-time</p>
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="text-center mb-2">
+        <h1 class="text-3xl font-bold">Play & Bet</h1>
+        <p class="text-gray-400 mt-2">Choose your stake, find an opponent, winner takes 90%</p>
+    </div>
 
-        <div id="matchmaking-area">
-            <button id="find-match-btn" onclick="findMatch()" class="w-full btn-primary py-4 rounded-xl text-white font-semibold text-lg">
-                Find Match
+    <!-- Balance -->
+    <div class="card rounded-xl p-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <span class="text-sm text-gray-400">Your Balance:</span>
+            <span class="text-lg font-bold sol-gradient">{{ '%.4f'|format(balance) }} SOL</span>
+            <span class="text-sm text-gray-500">(${{ '%.2f'|format(balance * sol_rate) }})</span>
+        </div>
+        <a href="{{ url_for('wallet_page') }}" class="text-sm text-indigo-400 hover:text-indigo-300 transition">Add funds</a>
+    </div>
+
+    <!-- House Edge Notice -->
+    <div class="card rounded-xl p-4 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border-purple-800/30">
+        <div class="flex items-start space-x-3">
+            <div class="text-xl">&#9888;</div>
+            <div>
+                <p class="text-sm font-medium text-purple-300">How Betting Works</p>
+                <ul class="text-xs text-gray-400 mt-1 space-y-1">
+                    <li>Both players stake the same amount of SOL</li>
+                    <li>Winner receives <span class="text-green-400 font-semibold">90% of the total pot</span></li>
+                    <li><span class="text-yellow-400 font-semibold">10% house edge</span> is kept by the platform</li>
+                    <li>On draw, both players get their full stake back</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bet Tier Selection -->
+    <div id="matchmaking-area">
+        <div class="card rounded-xl p-6">
+            <h2 class="text-lg font-semibold mb-4">Select Your Stake</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" id="bet-tiers">
+                {% for tier in bet_tiers %}
+                {% set sol_amount = tier / sol_rate %}
+                <div class="bet-tier card rounded-xl p-4 text-center border-2 border-transparent hover:border-purple-500"
+                     data-tier="{{ tier }}" onclick="selectTier({{ tier }})">
+                    <div class="text-xl font-bold">${{ tier }}</div>
+                    <div class="text-xs text-gray-500 mt-1">{{ '%.4f'|format(sol_amount) }} SOL</div>
+                    {% if tier <= 10 %}
+                    <div class="text-[10px] text-green-400 mt-1">Beginner</div>
+                    {% elif tier <= 50 %}
+                    <div class="text-[10px] text-yellow-400 mt-1">Mid Stakes</div>
+                    {% elif tier <= 100 %}
+                    <div class="text-[10px] text-orange-400 mt-1">High Stakes</div>
+                    {% else %}
+                    <div class="text-[10px] text-red-400 mt-1">Whale</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Payout Preview -->
+            <div id="payout-preview" class="hidden mb-6 p-4 rounded-xl bg-[#0a0e27] border border-gray-700">
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-xs text-gray-500">Your Stake</p>
+                        <p class="text-sm font-bold" id="preview-stake">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Total Pot</p>
+                        <p class="text-sm font-bold text-yellow-400" id="preview-pot">-</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500">Win Payout (90%)</p>
+                        <p class="text-sm font-bold text-green-400" id="preview-payout">-</p>
+                    </div>
+                </div>
+                <p class="text-center text-[10px] text-gray-600 mt-2">House edge: <span id="preview-house">-</span> ({{ house_edge }}%)</p>
+            </div>
+
+            <button id="find-match-btn" onclick="findMatch()" disabled
+                    class="w-full btn-sol py-4 rounded-xl text-white font-semibold text-lg opacity-50 cursor-not-allowed transition">
+                Select a Stake to Play
             </button>
         </div>
+    </div>
 
-        <div id="waiting-area" class="hidden">
+    <!-- Waiting State -->
+    <div id="waiting-area" class="hidden">
+        <div class="card rounded-xl p-8">
             <div class="flex flex-col items-center space-y-6">
                 <div class="relative">
-                    <div class="w-20 h-20 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                    <div class="w-20 h-20 border-4 border-purple-500/30 border-t-[#14F195] rounded-full animate-spin"></div>
                 </div>
-                <div>
-                    <p class="text-lg font-medium">Looking for opponent...</p>
+                <div class="text-center">
+                    <p class="text-lg font-medium">Finding opponent for <span id="waiting-bet" class="sol-gradient font-bold"></span> game...</p>
                     <p class="text-gray-400 text-sm mt-1" id="wait-time">Searching...</p>
+                    <p class="text-xs text-gray-600 mt-2">Your stake has been escrowed and will be refunded if you cancel</p>
                 </div>
                 <button onclick="cancelMatch()" class="px-6 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition">
-                    Cancel
+                    Cancel & Refund
                 </button>
             </div>
         </div>
@@ -33,13 +106,59 @@
 {% block scripts %}
 <script>
     const socket = io();
+    const SOL_RATE = {{ sol_rate }};
+    const BALANCE = {{ balance }};
+    let selectedBet = null;
     let waitTimer = null;
     let waitSeconds = 0;
 
+    function selectTier(tier) {
+        selectedBet = tier;
+        const solAmount = (tier / SOL_RATE).toFixed(4);
+
+        // Update selection UI
+        document.querySelectorAll('.bet-tier').forEach(el => {
+            el.classList.remove('selected');
+            el.style.borderColor = 'transparent';
+        });
+        const selected = document.querySelector(`[data-tier="${tier}"]`);
+        if (selected) {
+            selected.classList.add('selected');
+        }
+
+        // Check balance
+        const btn = document.getElementById('find-match-btn');
+        if (BALANCE < parseFloat(solAmount)) {
+            btn.textContent = 'Insufficient Balance - Deposit SOL';
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            btn.onclick = () => window.location.href = '/wallet';
+            return;
+        }
+
+        btn.textContent = `Find $${tier} Match`;
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.onclick = findMatch;
+
+        // Show payout preview
+        const preview = document.getElementById('payout-preview');
+        preview.classList.remove('hidden');
+        const pot = (tier * 2 / SOL_RATE).toFixed(4);
+        const payout = (tier * 2 * 0.9 / SOL_RATE).toFixed(4);
+        const house = (tier * 2 * 0.1 / SOL_RATE).toFixed(4);
+        document.getElementById('preview-stake').textContent = `$${tier} (${solAmount} SOL)`;
+        document.getElementById('preview-pot').textContent = `$${tier * 2} (${pot} SOL)`;
+        document.getElementById('preview-payout').textContent = `$${(tier * 2 * 0.9).toFixed(0)} (${payout} SOL)`;
+        document.getElementById('preview-house').textContent = `${house} SOL`;
+    }
+
     function findMatch() {
+        if (!selectedBet) return;
         document.getElementById('matchmaking-area').classList.add('hidden');
         document.getElementById('waiting-area').classList.remove('hidden');
-        socket.emit('find_match', {});
+        document.getElementById('waiting-bet').textContent = `$${selectedBet}`;
+        socket.emit('find_match', { bet_usd: selectedBet });
         waitSeconds = 0;
         waitTimer = setInterval(() => {
             waitSeconds++;
@@ -65,10 +184,15 @@
         }
     });
 
-    // Handle challenges
+    socket.on('error', (data) => {
+        alert(data.message);
+        cancelMatch();
+    });
+
     socket.on('game_challenge', (data) => {
-        if (confirm(`${data.from_name} challenged you to a game! Accept?`)) {
-            socket.emit('accept_challenge', { from_id: data.from_id });
+        const betInfo = data.bet_usd > 0 ? ` for $${data.bet_usd}` : '';
+        if (confirm(`${data.from_name} challenged you${betInfo}! Accept?`)) {
+            socket.emit('accept_challenge', { from_id: data.from_id, bet_usd: data.bet_usd });
         }
     });
 </script>

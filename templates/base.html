@@ -30,9 +30,15 @@
         .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
         .btn-danger { background: linear-gradient(135deg, #f5365c 0%, #f56036 100%); }
         .btn-success { background: linear-gradient(135deg, #2dce89 0%, #2dcecc 100%); }
+        .btn-sol { background: linear-gradient(135deg, #9945FF 0%, #14F195 100%); transition: all 0.2s; }
+        .btn-sol:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(153, 69, 255, 0.4); }
         .card { background: #16213e; border: 1px solid rgba(255,255,255,0.05); }
         .badge-online { background: #2dce89; }
         .badge-offline { background: #8898aa; }
+        .sol-gradient { background: linear-gradient(135deg, #9945FF 0%, #14F195 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .bet-tier { transition: all 0.2s; cursor: pointer; }
+        .bet-tier:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .bet-tier.selected { border-color: #14F195 !important; box-shadow: 0 0 20px rgba(20, 241, 149, 0.3); }
     </style>
     {% block head %}{% endblock %}
 </head>
@@ -51,8 +57,9 @@
                     {% if current_user.is_authenticated %}
                     <div class="hidden md:flex items-center space-x-1">
                         <a href="{{ url_for('dashboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Dashboard</a>
-                        <a href="{{ url_for('play_bot') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Play Bot</a>
-                        <a href="{{ url_for('play_online') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Play Online</a>
+                        <a href="{{ url_for('play_bot') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Practice</a>
+                        <a href="{{ url_for('play_online') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Play & Bet</a>
+                        <a href="{{ url_for('wallet_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Wallet</a>
                         <a href="{{ url_for('friends_page') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Friends</a>
                         <a href="{{ url_for('leaderboard') }}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-gray-300">Leaderboard</a>
                     </div>
@@ -60,11 +67,15 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('wallet_page') }}" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1a1f3e] border border-gray-700 hover:border-[#14F195] transition">
+                        <span class="text-xs sol-gradient font-bold">SOL</span>
+                        <span class="text-sm font-semibold text-white">{{ '%.4f'|format(current_user.sol_balance) }}</span>
+                    </a>
                     <a href="{{ url_for('profile', username=current_user.username) }}" class="flex items-center space-x-2 nav-link px-3 py-2 rounded-lg">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold">
                             {{ current_user.username[0].upper() }}
                         </div>
-                        <span class="text-sm font-medium text-gray-300">{{ current_user.username }}</span>
+                        <span class="text-sm font-medium text-gray-300 hidden sm:inline">{{ current_user.username }}</span>
                     </a>
                     <a href="{{ url_for('logout') }}" class="text-sm text-gray-400 hover:text-white transition">Logout</a>
                     {% else %}

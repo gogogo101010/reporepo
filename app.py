@@ -16,6 +16,7 @@ from functools import wraps
 from db import get_db, get_redis
 from models import User
 from game_engine import ChessGame, BotEngine
+from wallet import generate_wallet, BET_TIERS, HOUSE_EDGE_PERCENT, WINNER_PAYOUT_PERCENT
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -29,6 +30,9 @@ login_manager.login_view = 'login'
 rd = get_redis()
 db = get_db()
 
+# SOL/USD rate (in production, fetch from an oracle/API)
+SOL_USD_RATE = float(os.environ.get('SOL_USD_RATE', '150.0'))
+
 # ─── Helpers ────────────────────────────────────────────────────────
 
 def json_serial(obj):
@@ -37,6 +41,16 @@ def json_serial(obj):
     if isinstance(obj, datetime):
         return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def usd_to_sol(usd_amount):
+    """Convert USD bet amount to SOL."""
+    return round(usd_amount / SOL_USD_RATE, 6)
+
+
+def sol_to_usd(sol_amount):
+    """Convert SOL to USD."""
+    return round(sol_amount * SOL_USD_RATE, 2)
 
 
 @login_manager.user_loader
@@ -81,6 +95,9 @@ def register():
             flash('Username or email already taken.', 'error')
             return render_template('register.html')
 
+        # Generate Solana wallet for the user
+        wallet_address, wallet_secret = generate_wallet()
+
         hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         user_doc = {
             'username': username,
@@ -96,11 +113,22 @@ def register():
             'friend_requests': [],
             'created_at': datetime.utcnow(),
             'online': False,
+            # Wallet & betting
+            'wallet_address': wallet_address,
+            'wallet_secret': wallet_secret,  # encrypted in production
+            'sol_balance': 0.0,
+            'total_wagered': 0.0,
+            'total_won': 0.0,
+            'total_lost': 0.0,
+            'bet_wins': 0,
+            'bet_losses': 0,
+            'bet_draws': 0,
+            'net_profit': 0.0,
         }
         result = db.users.insert_one(user_doc)
         user_doc['_id'] = result.inserted_id
         login_user(User(user_doc))
-        flash('Welcome to Chess!', 'success')
+        flash('Welcome to Chess! Your Solana wallet has been created.', 'success')
         return redirect(url_for('dashboard'))
     return render_template('register.html')
 
@@ -150,11 +178,104 @@ def dashboard():
         fr = db.users.find_one({'_id': ObjectId(fid)}, {'username': 1, 'rating': 1, 'online': 1})
         if fr:
             friends_online.append(fr)
+    # Recent bets
+    recent_bets = list(db.bets.find(
+        {'player_id': current_user.id},
+    ).sort('created_at', -1).limit(5))
     return render_template('dashboard.html', user=user_data, recent_games=recent_games,
-                           friend_requests=friend_requests, friends=friends_online)
+                           friend_requests=friend_requests, friends=friends_online,
+                           recent_bets=recent_bets, sol_rate=SOL_USD_RATE)
 
 
-# ─── Play vs Bot ────────────────────────────────────────────────────
+# ─── Wallet & Deposit ──────────────────────────────────────────────
+
+@app.route('/wallet')
+@login_required
+def wallet_page():
+    user_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+    transactions = list(db.transactions.find(
+        {'user_id': current_user.id}
+    ).sort('created_at', -1).limit(50))
+    bet_history = list(db.bets.find(
+        {'player_id': current_user.id}
+    ).sort('created_at', -1).limit(50))
+    return render_template('wallet.html', user=user_data, transactions=transactions,
+                           bet_history=bet_history, sol_rate=SOL_USD_RATE,
+                           bet_tiers=BET_TIERS)
+
+
+@app.route('/wallet/deposit', methods=['POST'])
+@login_required
+def deposit():
+    """Simulate a SOL deposit (in production, verify on-chain tx)."""
+    try:
+        amount = float(request.form.get('amount', 0))
+    except (ValueError, TypeError):
+        flash('Invalid amount.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    if amount <= 0 or amount > 1000:
+        flash('Amount must be between 0 and 1000 SOL.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    db.users.update_one(
+        {'_id': ObjectId(current_user.id)},
+        {'$inc': {'sol_balance': amount}}
+    )
+    db.transactions.insert_one({
+        'user_id': current_user.id,
+        'type': 'deposit',
+        'amount': amount,
+        'description': f'Deposited {amount} SOL',
+        'created_at': datetime.utcnow(),
+    })
+    flash(f'Successfully deposited {amount} SOL!', 'success')
+    return redirect(url_for('wallet_page'))
+
+
+@app.route('/wallet/withdraw', methods=['POST'])
+@login_required
+def withdraw():
+    """Simulate a SOL withdrawal."""
+    try:
+        amount = float(request.form.get('amount', 0))
+    except (ValueError, TypeError):
+        flash('Invalid amount.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    user_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+    balance = user_data.get('sol_balance', 0)
+
+    if amount <= 0:
+        flash('Amount must be positive.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    if amount > balance:
+        flash('Insufficient balance.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    withdraw_address = request.form.get('address', '').strip()
+    if not withdraw_address:
+        flash('Withdrawal address is required.', 'error')
+        return redirect(url_for('wallet_page'))
+
+    db.users.update_one(
+        {'_id': ObjectId(current_user.id)},
+        {'$inc': {'sol_balance': -amount}}
+    )
+    db.transactions.insert_one({
+        'user_id': current_user.id,
+        'type': 'withdrawal',
+        'amount': amount,
+        'address': withdraw_address,
+        'description': f'Withdrew {amount} SOL to {withdraw_address[:8]}...',
+        'created_at': datetime.utcnow(),
+    })
+    flash(f'Successfully withdrew {amount} SOL!', 'success')
+    return redirect(url_for('wallet_page'))
+
+
+# ─── Play vs Bot (Practice - Free) ─────────────────────────────────
 
 @app.route('/play/bot', methods=['GET', 'POST'])
 @login_required
@@ -177,6 +298,8 @@ def play_bot():
             'status': 'active',
             'difficulty': difficulty,
             'player_color': color,
+            'bet_amount': 0,
+            'bet_usd': 0,
             'created_at': datetime.utcnow().isoformat(),
         }
         # If player chose black, bot makes first move
@@ -195,12 +318,16 @@ def play_bot():
     return render_template('play_bot.html')
 
 
-# ─── Play vs Player (matchmaking) ──────────────────────────────────
+# ─── Play vs Player (Betting Matchmaking) ──────────────────────────
 
 @app.route('/play/online')
 @login_required
 def play_online():
-    return render_template('play_online.html')
+    user_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+    balance = user_data.get('sol_balance', 0)
+    return render_template('play_online.html', bet_tiers=BET_TIERS,
+                           sol_rate=SOL_USD_RATE, balance=balance,
+                           house_edge=HOUSE_EDGE_PERCENT)
 
 
 # ─── Game Page ──────────────────────────────────────────────────────
@@ -217,7 +344,8 @@ def game_page(game_id):
         game_data['_id'] = str(game_data['_id'])
     else:
         game_data = json.loads(game_json)
-    return render_template('game.html', game=game_data, game_id=game_id)
+    return render_template('game.html', game=game_data, game_id=game_id,
+                           house_edge=HOUSE_EDGE_PERCENT, sol_rate=SOL_USD_RATE)
 
 
 # ─── Friends ────────────────────────────────────────────────────────
@@ -317,7 +445,8 @@ def profile(username):
     games = list(db.games.find(
         {'$or': [{'white_id': str(user_data['_id'])}, {'black_id': str(user_data['_id'])}]},
     ).sort('created_at', -1).limit(20))
-    return render_template('profile.html', profile_user=user_data, games=games)
+    return render_template('profile.html', profile_user=user_data, games=games,
+                           sol_rate=SOL_USD_RATE)
 
 
 # ─── Leaderboard ────────────────────────────────────────────────────
@@ -325,14 +454,17 @@ def profile(username):
 @app.route('/leaderboard')
 @login_required
 def leaderboard():
-    top_players = list(db.users.find({}, {'username': 1, 'rating': 1, 'wins': 1, 'losses': 1, 'draws': 1, 'games_played': 1}).sort('rating', -1).limit(50))
-    return render_template('leaderboard.html', players=top_players)
+    top_players = list(db.users.find(
+        {}, {'username': 1, 'rating': 1, 'wins': 1, 'losses': 1, 'draws': 1,
+             'games_played': 1, 'total_won': 1, 'net_profit': 1, 'sol_balance': 1}
+    ).sort('rating', -1).limit(50))
+    return render_template('leaderboard.html', players=top_players, sol_rate=SOL_USD_RATE)
 
 
 # ─── Socket.IO Events ──────────────────────────────────────────────
 
 online_users = {}  # sid -> user_id
-matchmaking_queue = []  # list of {sid, user_id, username, rating}
+matchmaking_queues = {}  # bet_usd -> list of {sid, user_id, username, rating}
 
 
 @socketio.on('connect')
@@ -347,9 +479,15 @@ def handle_disconnect():
     uid = online_users.pop(request.sid, None)
     if uid:
         db.users.update_one({'_id': ObjectId(uid)}, {'$set': {'online': False}})
-        # Remove from matchmaking
-        global matchmaking_queue
-        matchmaking_queue = [p for p in matchmaking_queue if p['sid'] != request.sid]
+        # Remove from all matchmaking queues and refund escrowed bets
+        for tier_key, queue in matchmaking_queues.items():
+            for p in queue:
+                if p['sid'] == request.sid and p.get('escrowed'):
+                    db.users.update_one(
+                        {'_id': ObjectId(p['user_id'])},
+                        {'$inc': {'sol_balance': p['bet_sol']}}
+                    )
+            matchmaking_queues[tier_key] = [p for p in queue if p['sid'] != request.sid]
 
 
 @socketio.on('join_game')
@@ -455,7 +593,11 @@ def _handle_bot_move(game_id, game_data):
 
 
 def _save_finished_game(game_data):
-    """Save finished game to MongoDB and update stats."""
+    """Save finished game to MongoDB, process bets, and update stats."""
+    bet_sol = game_data.get('bet_amount', 0)
+    bet_usd = game_data.get('bet_usd', 0)
+    is_paid_game = bet_sol > 0
+
     game_doc = {
         'game_id': game_data['game_id'],
         'type': game_data['type'],
@@ -466,24 +608,94 @@ def _save_finished_game(game_data):
         'moves': game_data['moves'],
         'status': game_data['status'],
         'winner': game_data.get('winner'),
+        'bet_amount': bet_sol,
+        'bet_usd': bet_usd,
         'created_at': datetime.utcnow(),
     }
     db.games.insert_one(game_doc)
 
-    # Update player stats
+    # Update player stats and process bet payouts
     for pid, color in [(game_data['white_id'], 'white'), (game_data['black_id'], 'black')]:
         if pid == 'bot':
             continue
+
         update = {'$inc': {'games_played': 1}}
+
         if game_data.get('winner') == 'draw':
             update['$inc']['draws'] = 1
+            if is_paid_game:
+                refund = bet_sol  # full refund on draw
+                update['$inc']['sol_balance'] = refund
+                update['$inc']['bet_draws'] = 1
+                _record_bet(pid, game_data['game_id'], bet_usd, bet_sol, 'draw', 0, refund)
+                _record_transaction(pid, 'bet_refund', refund,
+                                    f'Draw refund - ${bet_usd} game vs {_opponent_name(game_data, pid)}')
         elif game_data.get('winner') == color:
             update['$inc']['wins'] = 1
             update['$inc']['rating'] = 15
+            if is_paid_game:
+                # Winner gets 90% of total pot (both stakes combined)
+                total_pot = bet_sol * 2
+                payout = round(total_pot * WINNER_PAYOUT_PERCENT / 100, 6)
+                profit = round(payout - bet_sol, 6)
+                update['$inc']['sol_balance'] = payout
+                update['$inc']['total_won'] = payout
+                update['$inc']['bet_wins'] = 1
+                update['$inc']['net_profit'] = profit
+                _record_bet(pid, game_data['game_id'], bet_usd, bet_sol, 'won', profit, payout)
+                _record_transaction(pid, 'bet_win', payout,
+                                    f'Won ${bet_usd} game vs {_opponent_name(game_data, pid)} (+{profit:.4f} SOL)')
         else:
             update['$inc']['losses'] = 1
             update['$inc']['rating'] = -10
+            if is_paid_game:
+                update['$inc']['total_lost'] = bet_sol
+                update['$inc']['bet_losses'] = 1
+                update['$inc']['net_profit'] = -bet_sol
+                _record_bet(pid, game_data['game_id'], bet_usd, bet_sol, 'lost', -bet_sol, 0)
+                _record_transaction(pid, 'bet_loss', 0,
+                                    f'Lost ${bet_usd} game vs {_opponent_name(game_data, pid)} (-{bet_sol:.4f} SOL)')
+
         db.users.update_one({'_id': ObjectId(pid)}, update)
+
+    # Record house edge revenue
+    if is_paid_game and game_data.get('winner') != 'draw':
+        house_cut = round(bet_sol * 2 * HOUSE_EDGE_PERCENT / 100, 6)
+        db.house_revenue.insert_one({
+            'game_id': game_data['game_id'],
+            'amount': house_cut,
+            'bet_usd': bet_usd,
+            'created_at': datetime.utcnow(),
+        })
+
+
+def _opponent_name(game_data, player_id):
+    if player_id == game_data['white_id']:
+        return game_data['black_name']
+    return game_data['white_name']
+
+
+def _record_bet(player_id, game_id, bet_usd, bet_sol, result, profit, payout):
+    db.bets.insert_one({
+        'player_id': player_id,
+        'game_id': game_id,
+        'bet_usd': bet_usd,
+        'bet_sol': bet_sol,
+        'result': result,
+        'profit': profit,
+        'payout': payout,
+        'created_at': datetime.utcnow(),
+    })
+
+
+def _record_transaction(user_id, tx_type, amount, description):
+    db.transactions.insert_one({
+        'user_id': user_id,
+        'type': tx_type,
+        'amount': amount,
+        'description': description,
+        'created_at': datetime.utcnow(),
+    })
 
 
 @socketio.on('resign')
@@ -495,7 +707,6 @@ def handle_resign(data):
     game_data = json.loads(game_json)
     if game_data['status'] != 'active':
         return
-    # Determine who resigned
     if current_user.id == game_data['white_id']:
         game_data['winner'] = 'black'
     else:
@@ -526,41 +737,87 @@ def handle_accept_draw(data):
     emit('game_state', game_data, room=f'game_{game_id}')
 
 
-# ─── Matchmaking ────────────────────────────────────────────────────
+# ─── Betting Matchmaking ───────────────────────────────────────────
 
 @socketio.on('find_match')
 def handle_find_match(data):
-    global matchmaking_queue
+    bet_usd = data.get('bet_usd', 0)
+
+    # Validate bet tier
+    if bet_usd not in BET_TIERS:
+        emit('error', {'message': f'Invalid bet amount. Choose from: {BET_TIERS}'})
+        return
+
+    bet_sol = usd_to_sol(bet_usd)
+
+    # Check balance
     user_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+    balance = user_data.get('sol_balance', 0)
+    if balance < bet_sol:
+        emit('error', {'message': f'Insufficient balance. Need {bet_sol:.4f} SOL (${bet_usd}). You have {balance:.4f} SOL.'})
+        return
+
     player = {
         'sid': request.sid,
         'user_id': current_user.id,
         'username': current_user.username,
         'rating': user_data.get('rating', 1200),
+        'bet_usd': bet_usd,
+        'bet_sol': bet_sol,
     }
 
-    # Check if already in queue
-    for p in matchmaking_queue:
-        if p['user_id'] == current_user.id:
-            emit('match_status', {'status': 'waiting'})
-            return
+    tier_key = str(bet_usd)
+    if tier_key not in matchmaking_queues:
+        matchmaking_queues[tier_key] = []
+    queue = matchmaking_queues[tier_key]
 
-    # Try to find a match
+    # Check if already in any queue
+    for tkey, q in matchmaking_queues.items():
+        for p in q:
+            if p['user_id'] == current_user.id:
+                emit('match_status', {'status': 'waiting', 'bet_usd': bet_usd})
+                return
+
+    # Try to find a match in same tier
     best_match = None
     best_diff = float('inf')
-    for p in matchmaking_queue:
+    for p in queue:
         diff = abs(p['rating'] - player['rating'])
         if diff < best_diff:
             best_diff = diff
             best_match = p
 
     if best_match:
-        matchmaking_queue = [p for p in matchmaking_queue if p['sid'] != best_match['sid']]
+        queue[:] = [p for p in queue if p['sid'] != best_match['sid']]
+
+        # Deduct from matched player (if escrowed, already deducted)
+        if not best_match.get('escrowed'):
+            db.users.update_one(
+                {'_id': ObjectId(best_match['user_id'])},
+                {'$inc': {'sol_balance': -bet_sol, 'total_wagered': bet_sol}}
+            )
+        else:
+            db.users.update_one(
+                {'_id': ObjectId(best_match['user_id'])},
+                {'$inc': {'total_wagered': bet_sol}}
+            )
+
+        # Deduct from current player
+        db.users.update_one(
+            {'_id': ObjectId(current_user.id)},
+            {'$inc': {'sol_balance': -bet_sol, 'total_wagered': bet_sol}}
+        )
+
+        _record_transaction(best_match['user_id'], 'bet_placed', -bet_sol,
+                            f'Bet placed: ${bet_usd} game vs {current_user.username}')
+        _record_transaction(current_user.id, 'bet_placed', -bet_sol,
+                            f'Bet placed: ${bet_usd} game vs {best_match["username"]}')
+
         # Create game
         game_id = secrets.token_urlsafe(12)
         game_data = {
             'game_id': game_id,
-            'type': 'online',
+            'type': 'ranked',
             'white_id': best_match['user_id'],
             'black_id': current_user.id,
             'white_name': best_match['username'],
@@ -568,20 +825,36 @@ def handle_find_match(data):
             'fen': chess.STARTING_FEN,
             'moves': [],
             'status': 'active',
+            'bet_amount': bet_sol,
+            'bet_usd': bet_usd,
             'created_at': datetime.utcnow().isoformat(),
         }
-        rd.setex(f'game:{game_id}', 3600, json.dumps(game_data))
-        socketio.emit('match_found', {'game_id': game_id}, to=best_match['sid'])
-        emit('match_found', {'game_id': game_id})
+        rd.setex(f'game:{game_id}', 7200, json.dumps(game_data))
+        socketio.emit('match_found', {'game_id': game_id, 'bet_usd': bet_usd}, to=best_match['sid'])
+        emit('match_found', {'game_id': game_id, 'bet_usd': bet_usd})
     else:
-        matchmaking_queue.append(player)
-        emit('match_status', {'status': 'waiting'})
+        # Escrow: deduct bet now (will be refunded if cancelled)
+        db.users.update_one(
+            {'_id': ObjectId(current_user.id)},
+            {'$inc': {'sol_balance': -bet_sol}}
+        )
+        player['escrowed'] = True
+        queue.append(player)
+        emit('match_status', {'status': 'waiting', 'bet_usd': bet_usd, 'bet_sol': round(bet_sol, 4)})
 
 
 @socketio.on('cancel_match')
 def handle_cancel_match(data):
-    global matchmaking_queue
-    matchmaking_queue = [p for p in matchmaking_queue if p['sid'] != request.sid]
+    for tier_key, queue in matchmaking_queues.items():
+        for p in queue:
+            if p['sid'] == request.sid:
+                if p.get('escrowed'):
+                    db.users.update_one(
+                        {'_id': ObjectId(p['user_id'])},
+                        {'$inc': {'sol_balance': p['bet_sol']}}
+                    )
+                queue[:] = [x for x in queue if x['sid'] != request.sid]
+                break
     emit('match_status', {'status': 'cancelled'})
 
 
@@ -633,12 +906,13 @@ def handle_game_chat(data):
 @socketio.on('challenge_friend')
 def handle_challenge_friend(data):
     friend_id = data.get('friend_id')
-    # Find the friend's socket
+    bet_usd = data.get('bet_usd', 0)
     for sid, uid in online_users.items():
         if uid == friend_id:
             socketio.emit('game_challenge', {
                 'from_id': current_user.id,
                 'from_name': current_user.username,
+                'bet_usd': bet_usd,
             }, to=sid)
             break
 
@@ -646,11 +920,28 @@ def handle_challenge_friend(data):
 @socketio.on('accept_challenge')
 def handle_accept_challenge(data):
     challenger_id = data.get('from_id')
+    bet_usd = data.get('bet_usd', 0)
+    bet_sol = usd_to_sol(bet_usd) if bet_usd > 0 else 0
+
+    if bet_sol > 0:
+        challenger_data = db.users.find_one({'_id': ObjectId(challenger_id)})
+        accepter_data = db.users.find_one({'_id': ObjectId(current_user.id)})
+        if challenger_data.get('sol_balance', 0) < bet_sol:
+            emit('error', {'message': 'Challenger has insufficient balance.'})
+            return
+        if accepter_data.get('sol_balance', 0) < bet_sol:
+            emit('error', {'message': 'You have insufficient balance.'})
+            return
+        db.users.update_one({'_id': ObjectId(challenger_id)},
+                            {'$inc': {'sol_balance': -bet_sol, 'total_wagered': bet_sol}})
+        db.users.update_one({'_id': ObjectId(current_user.id)},
+                            {'$inc': {'sol_balance': -bet_sol, 'total_wagered': bet_sol}})
+
     game_id = secrets.token_urlsafe(12)
     challenger = db.users.find_one({'_id': ObjectId(challenger_id)})
     game_data = {
         'game_id': game_id,
-        'type': 'online',
+        'type': 'ranked' if bet_sol > 0 else 'online',
         'white_id': challenger_id,
         'black_id': current_user.id,
         'white_name': challenger['username'] if challenger else 'Unknown',
@@ -658,10 +949,11 @@ def handle_accept_challenge(data):
         'fen': chess.STARTING_FEN,
         'moves': [],
         'status': 'active',
+        'bet_amount': bet_sol,
+        'bet_usd': bet_usd,
         'created_at': datetime.utcnow().isoformat(),
     }
-    rd.setex(f'game:{game_id}', 3600, json.dumps(game_data))
-    # Notify both players
+    rd.setex(f'game:{game_id}', 7200, json.dumps(game_data))
     for sid, uid in online_users.items():
         if uid == challenger_id:
             socketio.emit('match_found', {'game_id': game_id}, to=sid)

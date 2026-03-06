@@ -45,6 +45,32 @@
         </div>
     </div>
 
+    <!-- Betting Stats -->
+    {% if profile_user.get('total_wagered', 0) > 0 %}
+    <div class="card rounded-xl p-6">
+        <h2 class="text-xl font-bold mb-4">Betting Stats</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-3 rounded-lg bg-[#0a0e27] text-center">
+                <div class="text-lg font-bold sol-gradient">{{ '%.4f'|format(profile_user.get('total_wagered', 0)) }}</div>
+                <div class="text-xs text-gray-500 mt-1">Total Wagered (SOL)</div>
+            </div>
+            <div class="p-3 rounded-lg bg-[#0a0e27] text-center">
+                <div class="text-lg font-bold text-green-400">{{ profile_user.get('bet_wins', 0) }}W / {{ profile_user.get('bet_losses', 0) }}L</div>
+                <div class="text-xs text-gray-500 mt-1">Bet Record</div>
+            </div>
+            <div class="p-3 rounded-lg bg-[#0a0e27] text-center">
+                <div class="text-lg font-bold text-green-400">{{ '%.4f'|format(profile_user.get('total_won', 0)) }}</div>
+                <div class="text-xs text-gray-500 mt-1">Total Won (SOL)</div>
+            </div>
+            <div class="p-3 rounded-lg bg-[#0a0e27] text-center">
+                {% set net = profile_user.get('net_profit', 0) %}
+                <div class="text-lg font-bold {% if net >= 0 %}text-green-400{% else %}text-red-400{% endif %}">{{ '+' if net >= 0 }}{{ '%.4f'|format(net) }}</div>
+                <div class="text-xs text-gray-500 mt-1">Net Profit (SOL)</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Game History -->
     <div class="card rounded-xl p-6">
         <h2 class="text-xl font-bold mb-4">Recent Games</h2>
